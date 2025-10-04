@@ -1,0 +1,12 @@
+Sample Product Cost List
+
+Metal Thermos - 100 USD - 7 Pieces
+Chargers - 100 USD - 30 Pieces
+USB Cables - 5 USD - 100 Pieces
+Laptop Stand - 45 USD - 15 Pieces
+Wireless Mouse - 25 USD - 50 Pieces
+Keyboard - 75 USD - 20 Pieces
+Monitor - 250 USD - 10 Pieces
+Desk Lamp - 35 USD - 25 Pieces
+Office Chair - 200 USD - 8 Pieces
+Headphones - 80 USD - 40 Pieces

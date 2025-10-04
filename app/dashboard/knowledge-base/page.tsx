@@ -13,16 +13,16 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Upload, FileText, Loader2, AlertCircle } from "lucide-react"
 import { useState } from "react"
-import { FinancialStatementParser, ParsedFinancialStatement } from "@/lib/financial-parser"
-import { FinancialDataTable } from "@/components/financial-data-table"
+import { ProductListParser, ParsedProductList } from "@/lib/product-parser"
+import { ProductDataTable } from "@/components/product-data-table"
 
 export default function KnowledgeBasePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
-  const [parsedData, setParsedData] = useState<ParsedFinancialStatement | null>(null)
+  const [parsedData, setParsedData] = useState<ParsedProductList | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [uploadedDocuments, setUploadedDocuments] = useState<ParsedFinancialStatement[]>([])
+  const [uploadedDocuments, setUploadedDocuments] = useState<ParsedProductList[]>([])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -30,7 +30,8 @@ export default function KnowledgeBasePage() {
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
       "application/vnd.ms-excel", // .xls
-      "text/csv" // .csv
+      "text/csv", // .csv
+      "text/plain" // .txt
     ]
     
     if (file && supportedTypes.includes(file.type)) {
@@ -56,7 +57,8 @@ export default function KnowledgeBasePage() {
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
       "application/vnd.ms-excel", // .xls
-      "text/csv" // .csv
+      "text/csv", // .csv
+      "text/plain" // .txt
     ]
     
     if (file && supportedTypes.includes(file.type)) {
@@ -70,8 +72,8 @@ export default function KnowledgeBasePage() {
       setError(null)
       
       try {
-        const parser = new FinancialStatementParser()
-        const result = await parser.parseFinancialStatement(selectedFile)
+        const parser = new ProductListParser()
+        const result = await parser.parseProductList(selectedFile)
         
         setParsedData(result)
         setUploadedDocuments(prev => [...prev, result])
@@ -86,7 +88,7 @@ export default function KnowledgeBasePage() {
     }
   }
 
-  const handleViewDocument = (document: ParsedFinancialStatement) => {
+  const handleViewDocument = (document: ParsedProductList) => {
     setParsedData(document)
   }
 
@@ -114,9 +116,9 @@ export default function KnowledgeBasePage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Upload Financial Statement</CardTitle>
+              <CardTitle>Upload Product Cost List</CardTitle>
               <CardDescription>
-                Upload your financial statement (PDF, Excel, or CSV) to analyze with AI. Supports Income Statements, Balance Sheets, and Cash Flow Statements.
+                Upload your product cost list (PDF, Excel, CSV, or Text) to extract product names, quantities, and prices. Format: Product Name - Price - Quantity
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -134,17 +136,17 @@ export default function KnowledgeBasePage() {
                   <Upload className="h-10 w-10 text-muted-foreground" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
-                      Drag and drop your financial statement here, or click to browse
+                      Drag and drop your product cost list here, or click to browse
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Supports PDF, Excel (.xlsx, .xls), and CSV files
+                      Supports PDF, Excel (.xlsx, .xls), CSV, and Text files
                     </p>
                   </div>
                 </div>
                 <Input
                   id="file-upload"
                   type="file"
-                  accept=".pdf,.xlsx,.xls,.csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+                  accept=".pdf,.xlsx,.xls,.csv,.txt,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/plain"
                   className="hidden"
                   onChange={handleFileChange}
                 />
@@ -186,7 +188,7 @@ export default function KnowledgeBasePage() {
             <CardHeader>
               <CardTitle>Uploaded Documents</CardTitle>
               <CardDescription>
-                View and manage your uploaded financial statements
+                View and manage your uploaded product lists
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -205,14 +207,14 @@ export default function KnowledgeBasePage() {
                       <div className="flex items-center gap-3">
                         <FileText className="h-8 w-8 text-primary" />
                         <div>
-                          <p className="text-sm font-medium">{doc.companyName}</p>
+                          <p className="text-sm font-medium">{doc.products.length} Products</p>
                           <p className="text-xs text-muted-foreground">
-                            {doc.statementType} • {doc.period} • {doc.confidence}% confidence
+                            {doc.totalItems} items • {doc.confidence}% confidence
                           </p>
                         </div>
                       </div>
                       <Button variant="outline" size="sm">
-                        View Analysis
+                        View Products
                       </Button>
                     </div>
                   ))}
@@ -224,16 +226,16 @@ export default function KnowledgeBasePage() {
           {parsedData && (
             <Card>
               <CardHeader>
-                <CardTitle>Financial Analysis</CardTitle>
+                <CardTitle>Product Analysis</CardTitle>
                 <CardDescription>
-                  AI-powered analysis of your financial statement
+                  AI-powered analysis of your product cost list
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <FinancialDataTable
-                  data={parsedData.data}
-                  companyName={parsedData.companyName}
-                  period={parsedData.period}
+                <ProductDataTable
+                  products={parsedData.products}
+                  totalItems={parsedData.totalItems}
+                  totalValue={parsedData.totalValue}
                   confidence={parsedData.confidence}
                 />
               </CardContent>
