@@ -1,9 +1,11 @@
 import * as React from "react"
 
 import { NavItems } from "@/components/nav-items"
+import { UserMenu } from "@/components/user-menu"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -31,6 +33,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavItems />
       </SidebarContent>
+      <SidebarFooter>
+        <UserMenu />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
