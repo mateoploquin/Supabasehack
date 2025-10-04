@@ -6,10 +6,9 @@ control of web browsers for tasks like web scraping and form filling.
 """
 
 import json
-import os
 import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -47,7 +46,7 @@ class BrowserTaskRequest(BaseModel):
         default=True,
         description="Whether to include screenshots in the response"
     )
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         default=None,
         description="Session ID to reuse an existing browser session",
         examples=["550e8400-e29b-41d4-a716-446655440000"]
@@ -80,7 +79,7 @@ class BrowserTaskResponse(BaseModel):
         ..., 
         description="Number of steps taken by the agent"
     )
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         default=None,
         description="Session ID for the browser session (if saved)"
     )
@@ -101,7 +100,7 @@ def save_browser_session(session_id: str, agent: Any) -> None:
             "session_storage": agent.browser_context.session_storage() if hasattr(agent, 'browser_context') else {},
         }
         
-        with open(session_file, "w") as f:
+        with session_file.open("w") as f:
             json.dump(session_data, f, indent=2)
             
         logger.info(f"Browser session saved: {session_id}")
@@ -109,7 +108,7 @@ def save_browser_session(session_id: str, agent: Any) -> None:
         logger.error(f"Failed to save browser session {session_id}: {e!s}")
 
 
-def load_browser_session(session_id: str) -> Optional[dict[str, Any]]:
+def load_browser_session(session_id: str) -> dict[str, Any] | None:
     """Load browser session state from disk.
     
     Args:
@@ -123,7 +122,7 @@ def load_browser_session(session_id: str) -> Optional[dict[str, Any]]:
         if not session_file.exists():
             return None
             
-        with open(session_file, "r") as f:
+        with session_file.open() as f:
             session_data = json.load(f)
             
         logger.info(f"Browser session loaded: {session_id}")
@@ -194,7 +193,7 @@ async def run_browser_task(request: BrowserTaskRequest) -> BrowserTaskResponse:
         history = await agent.run(max_steps=request.max_steps)
         
         # Get the final result and message from the agent
-        final_result = history.result() if hasattr(history, 'result') else None
+        final_result = history.final_result() if hasattr(history, 'final_result') else None
         final_message = final_result if final_result else "Task completed with no specific result"
         
         # Extract additional results from the agent history
@@ -293,7 +292,7 @@ async def delete_browser_session(session_id: str) -> dict[str, str]:
     try:
         session_file = SESSION_DIR / f"{session_id}.json"
         if session_file.exists():
-            os.remove(session_file)
+            session_file.unlink()
             logger.info(f"Browser session deleted: {session_id}")
             return {"status": "success", "message": f"Session {session_id} deleted successfully"}
         else:
@@ -308,4 +307,4 @@ async def delete_browser_session(session_id: str) -> dict[str, str]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete session: {e!s}"
-        )
+        ) from e

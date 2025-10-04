@@ -155,7 +155,7 @@ class TestBrowserRoutes:
         # Mock the browser_use module
         mock_agent = AsyncMock()
         mock_history = MagicMock()
-        mock_history.result.return_value = "Task completed successfully"
+        mock_history.final_result.return_value = "Task completed successfully"
         mock_history.errors.return_value = []
         mock_history.urls.return_value = ["https://www.google.com"]
         mock_history.history = [{"step": 1, "action": "navigate"}]
@@ -202,7 +202,7 @@ class TestBrowserRoutes:
         # Mock the browser_use module
         mock_agent = AsyncMock()
         mock_history = MagicMock()
-        mock_history.result.return_value = "Task continued successfully"
+        mock_history.final_result.return_value = "Task continued successfully"
         mock_history.errors.return_value = []
         mock_history.urls.return_value = ["https://www.example.com"]
         mock_history.history = [{"step": 1, "action": "continue"}]
@@ -240,7 +240,7 @@ class TestBrowserRoutes:
         # Mock the browser_use module
         mock_agent = AsyncMock()
         mock_history = MagicMock()
-        mock_history.result.return_value = "Task completed successfully"
+        mock_history.final_result.return_value = "Task completed successfully"
         mock_history.errors.return_value = []
         mock_history.urls.return_value = ["https://www.google.com"]
         mock_history.history = [{"step": 1, "action": "navigate"}]
