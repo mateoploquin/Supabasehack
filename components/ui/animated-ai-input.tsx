@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bot, Check, ChevronDown, Paperclip } from "lucide-react";
+import { ArrowRight, Bot, Check, ChevronDown, Paperclip, Loader2 } from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -95,88 +95,45 @@ const OPENAI_ICON = (
     </>
 );
 
-export function AI_Prompt() {
+interface AI_PromptProps {
+    onSendMessage: (message: string, model: string) => Promise<void>;
+    isLoading?: boolean;
+}
+
+export function AI_Prompt({ onSendMessage, isLoading = false }: AI_PromptProps) {
     const [value, setValue] = useState("");
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 72,
         maxHeight: 300,
     });
-    const [selectedModel, setSelectedModel] = useState("GPT-4-1 Mini");
+    const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
 
     const AI_MODELS = [
-        "o3-mini",
-        "Gemini 2.5 Flash",
-        "Claude 3.5 Sonnet",
-        "GPT-4-1 Mini",
-        "GPT-4-1",
+        { name: "GPT-4o Mini", value: "gpt-4o-mini" },
+        { name: "GPT-4o", value: "gpt-4o" },
+        { name: "GPT-4 Turbo", value: "gpt-4-turbo" },
     ];
 
     const MODEL_ICONS: Record<string, React.ReactNode> = {
-        "o3-mini": OPENAI_ICON,
-        "Gemini 2.5 Flash": (
-            <svg
-                height="1em"
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-            >
-                <title>Gemini</title>
-                <defs>
-                    <linearGradient
-                        id="lobe-icons-gemini-fill"
-                        x1="0%"
-                        x2="68.73%"
-                        y1="100%"
-                        y2="30.395%"
-                    >
-                        <stop offset="0%" stopColor="#1C7DFF" />
-                        <stop offset="52.021%" stopColor="#1C69FF" />
-                        <stop offset="100%" stopColor="#F0DCD6" />
-                    </linearGradient>
-                </defs>
-                <path
-                    d="M12 24A14.304 14.304 0 000 12 14.304 14.304 0 0012 0a14.305 14.305 0 0012 12 14.305 14.305 0 00-12 12"
-                    fill="url(#lobe-icons-gemini-fill)"
-                    fillRule="nonzero"
-                />
-            </svg>
-        ),
-        "Claude 3.5 Sonnet": (
-            <>
-                <svg
-                    fill="#000"
-                    fillRule="evenodd"
-                    className="w-4 h-4 dark:hidden block"
-                    viewBox="0 0 24 24"
-                    width="1em"
-                    xmlns="http://www.w3.org/2000/svg"
-                >
-                    <title>Anthropic Icon Light</title>
-                    <path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z" />
-                </svg>
-                <svg
-                    fill="#fff"
-                    fillRule="evenodd"
-                    className="w-4 h-4 hidden dark:block"
-                    viewBox="0 0 24 24"
-                    width="1em"
-                    xmlns="http://www.w3.org/2000/svg"
-                >
-                    <title>Anthropic Icon Dark</title>
-                    <path d="M13.827 3.52h3.603L24 20h-3.603l-6.57-16.48zm-7.258 0h3.767L16.906 20h-3.674l-1.343-3.461H5.017l-1.344 3.46H0L6.57 3.522zm4.132 9.959L8.453 7.687 6.205 13.48H10.7z" />
-                </svg>
-            </>
-        ),
-        "GPT-4-1 Mini": OPENAI_ICON,
-        "GPT-4-1": OPENAI_ICON,
+        "gpt-4o-mini": OPENAI_ICON,
+        "gpt-4o": OPENAI_ICON,
+        "gpt-4-turbo": OPENAI_ICON,
+    };
+
+    const handleSend = async () => {
+        if (!value.trim() || isLoading) return;
+        
+        const message = value.trim();
+        setValue("");
+        adjustHeight(true);
+        
+        await onSendMessage(message, selectedModel);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter" && !e.shiftKey && value.trim()) {
+        if (e.key === "Enter" && !e.shiftKey && value.trim() && !isLoading) {
             e.preventDefault();
-            setValue("");
-            adjustHeight(true);
-            // Here you can add message sending logic
+            handleSend();
         }
     };
 
@@ -192,7 +149,7 @@ export function AI_Prompt() {
                             <Textarea
                                 id="ai-input-15"
                                 value={value}
-                                placeholder={"What can I do for you?"}
+                                placeholder={isLoading ? "Waiting for response..." : "What can I do for you?"}
                                 className={cn(
                                     "w-full rounded-xl rounded-b-none px-4 py-3 bg-black/5 dark:bg-white/5 border-none dark:text-white placeholder:text-black/70 dark:placeholder:text-white/70 resize-none focus-visible:ring-0 focus-visible:ring-offset-0",
                                     "min-h-[72px]"
@@ -203,6 +160,7 @@ export function AI_Prompt() {
                                     setValue(e.target.value);
                                     adjustHeight();
                                 }}
+                                disabled={isLoading}
                             />
                         </div>
 
@@ -210,10 +168,11 @@ export function AI_Prompt() {
                             <div className="absolute left-3 right-3 bottom-3 flex items-center justify-between w-[calc(100%-24px)]">
                                 <div className="flex items-center gap-2">
                                     <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
+                                        <DropdownMenuTrigger asChild disabled={isLoading}>
                                             <Button
                                                 variant="ghost"
                                                 className="flex items-center gap-1 h-8 pl-1 pr-2 text-xs rounded-md dark:text-white hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500"
+                                                disabled={isLoading}
                                             >
                                                 <AnimatePresence mode="wait">
                                                     <motion.div
@@ -235,12 +194,8 @@ export function AI_Prompt() {
                                                         }}
                                                         className="flex items-center gap-1"
                                                     >
-                                                        {
-                                                            MODEL_ICONS[
-                                                                selectedModel
-                                                            ]
-                                                        }
-                                                        {selectedModel}
+                                                        {MODEL_ICONS[selectedModel]}
+                                                        {AI_MODELS.find(m => m.value === selectedModel)?.name}
                                                         <ChevronDown className="w-3 h-3 opacity-50" />
                                                     </motion.div>
                                                 </AnimatePresence>
@@ -255,20 +210,19 @@ export function AI_Prompt() {
                                         >
                                             {AI_MODELS.map((model) => (
                                                 <DropdownMenuItem
-                                                    key={model}
+                                                    key={model.value}
                                                     onSelect={() =>
-                                                        setSelectedModel(model)
+                                                        setSelectedModel(model.value)
                                                     }
                                                     className="flex items-center justify-between gap-2"
                                                 >
                                                     <div className="flex items-center gap-2">
-                                                        {MODEL_ICONS[model] || (
+                                                        {MODEL_ICONS[model.value] || (
                                                             <Bot className="w-4 h-4 opacity-50" />
                                                         )}
-                                                        <span>{model}</span>
+                                                        <span>{model.name}</span>
                                                     </div>
-                                                    {selectedModel ===
-                                                        model && (
+                                                    {selectedModel === model.value && (
                                                         <Check className="w-4 h-4 text-blue-500" />
                                                     )}
                                                 </DropdownMenuItem>
@@ -280,11 +234,12 @@ export function AI_Prompt() {
                                         className={cn(
                                             "rounded-lg p-2 bg-black/5 dark:bg-white/5 cursor-pointer",
                                             "hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500",
-                                            "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
+                                            "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white",
+                                            isLoading && "opacity-50 cursor-not-allowed"
                                         )}
                                         aria-label="Attach file"
                                     >
-                                        <input type="file" className="hidden" />
+                                        <input type="file" className="hidden" disabled={isLoading} />
                                         <Paperclip className="w-4 h-4 transition-colors" />
                                     </label>
                                 </div>
@@ -295,22 +250,21 @@ export function AI_Prompt() {
                                         "hover:bg-black/10 dark:hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-blue-500"
                                     )}
                                     aria-label="Send message"
-                                    disabled={!value.trim()}
-                                    onClick={() => {
-                                        if (!value.trim()) return;
-                                        setValue("");
-                                        adjustHeight(true);
-                                        // Here you can add message sending logic
-                                    }}
+                                    disabled={!value.trim() || isLoading}
+                                    onClick={handleSend}
                                 >
-                                    <ArrowRight
-                                        className={cn(
-                                            "w-4 h-4 dark:text-white transition-opacity duration-200",
-                                            value.trim()
-                                                ? "opacity-100"
-                                                : "opacity-30"
-                                        )}
-                                    />
+                                    {isLoading ? (
+                                        <Loader2 className="w-4 h-4 dark:text-white animate-spin" />
+                                    ) : (
+                                        <ArrowRight
+                                            className={cn(
+                                                "w-4 h-4 dark:text-white transition-opacity duration-200",
+                                                value.trim()
+                                                    ? "opacity-100"
+                                                    : "opacity-30"
+                                            )}
+                                        />
+                                    )}
                                 </button>
                             </div>
                         </div>
