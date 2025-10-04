@@ -11,16 +11,29 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileText } from "lucide-react"
+import { Upload, FileText, Loader2, AlertCircle } from "lucide-react"
 import { useState } from "react"
+import { FinancialStatementParser, ParsedFinancialStatement } from "@/lib/financial-parser"
+import { FinancialDataTable } from "@/components/financial-data-table"
 
 export default function KnowledgeBasePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
+  const [parsedData, setParsedData] = useState<ParsedFinancialStatement | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [uploadedDocuments, setUploadedDocuments] = useState<ParsedFinancialStatement[]>([])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file && file.type === "application/pdf") {
+    const supportedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel", // .xls
+      "text/csv" // .csv
+    ]
+    
+    if (file && supportedTypes.includes(file.type)) {
       setSelectedFile(file)
     }
   }
@@ -39,16 +52,42 @@ export default function KnowledgeBasePage() {
     e.preventDefault()
     setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
-    if (file && file.type === "application/pdf") {
+    const supportedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel", // .xls
+      "text/csv" // .csv
+    ]
+    
+    if (file && supportedTypes.includes(file.type)) {
       setSelectedFile(file)
     }
   }
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (selectedFile) {
-      // TODO: Implement upload logic
-      console.log("Uploading:", selectedFile.name)
+      setIsParsing(true)
+      setError(null)
+      
+      try {
+        const parser = new FinancialStatementParser()
+        const result = await parser.parseFinancialStatement(selectedFile)
+        
+        setParsedData(result)
+        setUploadedDocuments(prev => [...prev, result])
+        
+        // Reset file selection
+        setSelectedFile(null)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to parse document')
+      } finally {
+        setIsParsing(false)
+      }
     }
+  }
+
+  const handleViewDocument = (document: ParsedFinancialStatement) => {
+    setParsedData(document)
   }
 
   return (
@@ -64,11 +103,20 @@ export default function KnowledgeBasePage() {
           <h1 className="text-lg font-semibold">Knowledge Base</h1>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 md:p-6 lg:p-8">
+          {error && (
+            <Card className="border-destructive">
+              <CardContent className="flex items-center gap-2 pt-6">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <p className="text-sm text-destructive">{error}</p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
-              <CardTitle>Upload Balance Sheet</CardTitle>
+              <CardTitle>Upload Financial Statement</CardTitle>
               <CardDescription>
-                Upload your PDF balance sheet to add it to the knowledge base
+                Upload your financial statement (PDF, Excel, or CSV) to analyze with AI. Supports Income Statements, Balance Sheets, and Cash Flow Statements.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -86,22 +134,22 @@ export default function KnowledgeBasePage() {
                   <Upload className="h-10 w-10 text-muted-foreground" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">
-                      Drag and drop your PDF here, or click to browse
+                      Drag and drop your financial statement here, or click to browse
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Only PDF files are supported
+                      Supports PDF, Excel (.xlsx, .xls), and CSV files
                     </p>
                   </div>
                 </div>
                 <Input
-                  id="pdf-upload"
+                  id="file-upload"
                   type="file"
-                  accept="application/pdf"
+                  accept=".pdf,.xlsx,.xls,.csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
                   className="hidden"
                   onChange={handleFileChange}
                 />
                 <Label
-                  htmlFor="pdf-upload"
+                  htmlFor="file-upload"
                   className="mt-4 inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 cursor-pointer"
                 >
                   Browse Files
@@ -119,7 +167,16 @@ export default function KnowledgeBasePage() {
                       </p>
                     </div>
                   </div>
-                  <Button onClick={handleUpload}>Upload</Button>
+                  <Button onClick={handleUpload} disabled={isParsing}>
+                    {isParsing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Parsing...
+                      </>
+                    ) : (
+                      'Upload & Parse'
+                    )}
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -129,15 +186,59 @@ export default function KnowledgeBasePage() {
             <CardHeader>
               <CardTitle>Uploaded Documents</CardTitle>
               <CardDescription>
-                View and manage your uploaded balance sheets
+                View and manage your uploaded financial statements
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                No documents uploaded yet.
-              </p>
+              {uploadedDocuments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No documents uploaded yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {uploadedDocuments.map((doc, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                      onClick={() => handleViewDocument(doc)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-8 w-8 text-primary" />
+                        <div>
+                          <p className="text-sm font-medium">{doc.companyName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {doc.statementType} • {doc.period} • {doc.confidence}% confidence
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        View Analysis
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {parsedData && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Financial Analysis</CardTitle>
+                <CardDescription>
+                  AI-powered analysis of your financial statement
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FinancialDataTable
+                  data={parsedData.data}
+                  companyName={parsedData.companyName}
+                  period={parsedData.period}
+                  confidence={parsedData.confidence}
+                />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </SidebarInset>
     </SidebarProvider>
