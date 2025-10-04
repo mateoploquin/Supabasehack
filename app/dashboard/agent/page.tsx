@@ -6,7 +6,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-export default function Page() {
+export default function AgentPage() {
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -17,15 +17,15 @@ export default function Page() {
             orientation="vertical"
             className="mr-2 data-[orientation=vertical]:h-4"
           />
-          <h1 className="text-lg font-semibold">Dashboard</h1>
+          <h1 className="text-lg font-semibold">Agent</h1>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-            <div className="bg-muted/50 aspect-video rounded-xl" />
-            <div className="bg-muted/50 aspect-video rounded-xl" />
-            <div className="bg-muted/50 aspect-video rounded-xl" />
+          <div className="rounded-lg border bg-card p-6">
+            <h2 className="text-xl font-semibold mb-4">Agent</h2>
+            <p className="text-muted-foreground">
+              Configure and manage your AI agent here.
+            </p>
           </div>
-          <div className="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
         </div>
       </SidebarInset>
     </SidebarProvider>
