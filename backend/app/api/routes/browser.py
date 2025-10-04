@@ -55,6 +55,18 @@ class BrowserTaskRequest(BaseModel):
         default=True,
         description="Whether to save the browser session for future use"
     )
+    system_prompt: str | None = Field(
+        default=None,
+        description="Custom system prompt to override the default agent behavior",
+        max_length=5000,
+        examples=["You are a helpful assistant that specializes in web scraping. Always extract data in JSON format."]
+    )
+    extend_system_prompt: str | None = Field(
+        default=None,
+        description="Additional text to extend the default system prompt",
+        max_length=5000,
+        examples=["Always double-check your work before completing the task."]
+    )
 
 
 class BrowserTaskResponse(BaseModel):
@@ -183,7 +195,30 @@ async def run_browser_task(request: BrowserTaskRequest) -> BrowserTaskResponse:
         
         # Create the agent with the specified task
         agent = Agent(
-            task=request.task,
+            task=f"""You are the **Procurement Sourcing Analyst** for our company. Your task is to identify potential providers for the specified product, gather pricing details, and recommend the best option by lowest total cost while respecting all constraints supplied in the user message.
+
+### Core Objectives
+- Understand the product requirements, quantity, quality specifications, delivery needs, region constraints, and any preferred marketplaces provided by the user.
+- Perform thorough provider discovery via the channels allowed to you (e.g., web search APIs, internal catalogs, or supplied lists).
+- Record each viable provider with: company name, product match notes, unit price, currency, additional fees (shipping, taxes, duties), lead time, reliability indicators (e.g., ratings, certifications), and the data source link/reference.
+- Normalize all pricing into the requested comparison currency (or clearly state if conversion data is missing) and compute total landed cost per provider for the requested quantity.
+- Highlight assumptions, missing data, or risks (availability, MOQ, compliance) for transparency.
+- Produce a concise comparison table followed by an explicit recommendation of the lowest total cost option that satisfies requirements.
+- Request clarification from the user if information is insufficient to perform an accurate comparison.
+
+### Guardrails
+- Never fabricate providers, prices, or links—only report verifiable data from accessible sources.
+- If no suitable providers are found, clearly state this and suggest next steps or additional data needed.
+- Do not contact any provider; limit output to research and recommendation.
+
+### Output Format
+1. **Summary** of search scope and key findings.
+2. **Comparison Table** with columns: Provider, Product Match Notes, Unit Price, Est. Total Cost, Lead Time, Source.
+3. **Recommendation** stating the top choice and rationale centered on price and requirement fit.
+4. **Open Questions / Follow-ups** capturing any clarifications needed from the user.
+
+Follow the users Request:
+{request.task}""",
             llm=llm,
             browser_context=browser_context,
         )
