@@ -5,6 +5,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { AI_Prompt } from "@/components/ui/animated-ai-input"
 
 export default function AgentPage() {
   return (
@@ -19,12 +20,13 @@ export default function AgentPage() {
           />
           <h1 className="text-lg font-semibold">Agent</h1>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="rounded-lg border bg-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Agent</h2>
-            <p className="text-muted-foreground">
-              Configure and manage your AI agent here.
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4 md:p-6 lg:p-8">
+          <div className="w-full flex flex-col items-center">
+            <h2 className="text-2xl font-bold mb-2">Chat with Chamba.AI</h2>
+            <p className="text-muted-foreground mb-8 text-center">
+              Ask questions about your balance sheet and financial data
             </p>
+            <AI_Prompt />
           </div>
         </div>
       </SidebarInset>
