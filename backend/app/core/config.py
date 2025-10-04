@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     # Database settings - use DATABASE_URL for external database connection managed by Next.js/Prisma
     # Required in production, but has a placeholder for tests
     DATABASE_URL: str | None = None
+    
+    # Google API key for browser-use
+    GOOGLE_API_KEY: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
