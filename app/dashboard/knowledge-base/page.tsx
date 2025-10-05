@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileText, Loader2, AlertCircle } from "lucide-react"
+import { Upload, FileText, Loader2, AlertCircle, Search, Play } from "lucide-react"
 import { useState } from "react"
 import { ProductListParser, ParsedProductList } from "@/lib/product-parser"
 import { ProductDataTable } from "@/components/product-data-table"
@@ -23,6 +23,9 @@ export default function KnowledgeBasePage() {
   const [parsedData, setParsedData] = useState<ParsedProductList | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [uploadedDocuments, setUploadedDocuments] = useState<ParsedProductList[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResponse, setSearchResponse] = useState<any>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -92,6 +95,51 @@ export default function KnowledgeBasePage() {
     setParsedData(document)
   }
 
+  const handleSearchSuppliers = async () => {
+    if (!parsedData) {
+      setSearchError("No product data available. Please upload and parse a document first.")
+      return
+    }
+
+    setIsSearching(true)
+    setSearchError(null)
+    setSearchResponse(null)
+
+    try {
+      // Format the product data as a string to send to the backend
+      const dataString = parsedData.products.map(product =>
+        `${product.name} - ${product.price} ${product.currency || 'USD'} - ${product.quantity} pieces`
+      ).join('\n')
+
+      const response = await fetch('http://localhost:8000/api/v1/browser/run-task', {
+        method: 'POST',
+        mode: 'cors', // Explicitly set CORS mode
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task: `start seraching and finding the cheapest suppliers, these my current supplier prices:\n${dataString}`,
+          max_steps: 50,
+          include_screenshot: true,
+          session_id: "550e8400-e29b-41d4-a716-446655440000",
+          save_session: true
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setSearchResponse(data)
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Failed to search for suppliers')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -122,8 +170,9 @@ export default function KnowledgeBasePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              <button
+                type="button"
+                className={`w-full border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                   isDragging
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/25"
@@ -131,6 +180,7 @@ export default function KnowledgeBasePage() {
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
+                onClick={() => document.getElementById('file-upload')?.click()}
               >
                 <div className="flex flex-col items-center gap-2">
                   <Upload className="h-10 w-10 text-muted-foreground" />
@@ -156,7 +206,7 @@ export default function KnowledgeBasePage() {
                 >
                   Browse Files
                 </Label>
-              </div>
+              </button>
 
               {selectedFile && (
                 <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
@@ -199,9 +249,10 @@ export default function KnowledgeBasePage() {
               ) : (
                 <div className="space-y-2">
                   {uploadedDocuments.map((doc, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                    <button
+                      type="button"
+                      key={`doc-${index}-${doc.totalItems}-${doc.totalValue}`}
+                      className="w-full flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
                       onClick={() => handleViewDocument(doc)}
                     >
                       <div className="flex items-center gap-3">
@@ -216,7 +267,7 @@ export default function KnowledgeBasePage() {
                       <Button variant="outline" size="sm">
                         View Products
                       </Button>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -238,6 +289,61 @@ export default function KnowledgeBasePage() {
                   totalValue={parsedData.totalValue}
                   confidence={parsedData.confidence}
                 />
+                
+                <div className="mt-6 pt-6 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-medium">Find Cheaper Suppliers</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Use AI to search for cheaper suppliers based on your current product prices
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleSearchSuppliers}
+                      disabled={isSearching}
+                      className="flex items-center gap-2"
+                    >
+                      {isSearching ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4" />
+                          Find Suppliers
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {searchError && (
+                    <Card className="mt-4 border-destructive">
+                      <CardContent className="flex items-center gap-2 pt-6">
+                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        <p className="text-sm text-destructive">{searchError}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {searchResponse && (
+                    <Card className="mt-4">
+                      <CardHeader>
+                        <CardTitle>Supplier Search Results</CardTitle>
+                        <CardDescription>
+                          Results from the AI-powered supplier search
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="bg-muted p-4 rounded-lg">
+                          <pre className="text-sm whitespace-pre-wrap overflow-auto max-h-96">
+                            {JSON.stringify(searchResponse, null, 2)}
+                          </pre>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
