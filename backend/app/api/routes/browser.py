@@ -283,9 +283,18 @@ async def get_browser_status() -> dict[str, str]:
     Returns:
         Dict[str, str]: Status information
     """
+    google_api_configured = bool(settings.GOOGLE_API_KEY)
+    cloud_api_configured = bool(settings.BROWSER_USE_API_KEY)
+    
     return {
-        "status": "ready" if settings.GOOGLE_API_KEY else "not_configured",
-        "message": "Browser automation service is ready" if settings.GOOGLE_API_KEY else "Google API key not configured"
+        "status": "ready" if (google_api_configured or cloud_api_configured) else "not_configured",
+        "google_api_configured": google_api_configured,
+        "cloud_api_configured": cloud_api_configured,
+        "message": (
+            "Browser automation service is ready"
+            if (google_api_configured or cloud_api_configured)
+            else "Neither Google API key nor Browser-Use Cloud API key is configured"
+        )
     }
 
 
