@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileText, Loader2, AlertCircle, Search, Play } from "lucide-react"
+import { Upload, FileText, Loader2, AlertCircle, Search, Play, Phone } from "lucide-react"
 import { useState } from "react"
 import { ProductListParser, ParsedProductList } from "@/lib/product-parser"
 import { ProductDataTable } from "@/components/product-data-table"
@@ -26,6 +26,12 @@ export default function KnowledgeBasePage() {
   const [isSearching, setIsSearching] = useState(false)
   const [searchResponse, setSearchResponse] = useState<any>(null)
   const [searchError, setSearchError] = useState<string | null>(null)
+  
+  // Negotiation state
+  const [isNegotiating, setIsNegotiating] = useState(false)
+  const [negotiationResponse, setNegotiationResponse] = useState<any>(null)
+  const [negotiationError, setNegotiationError] = useState<string | null>(null)
+  const [negotiationCallId, setNegotiationCallId] = useState<string | null>(null)
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -137,6 +143,129 @@ export default function KnowledgeBasePage() {
       setSearchError(err instanceof Error ? err.message : 'Failed to search for suppliers')
     } finally {
       setIsSearching(false)
+    }
+  }
+
+  const handleNegotiateWithSuppliers = async () => {
+    if (!searchResponse) {
+      setNegotiationError("No supplier search results available. Please search for suppliers first.")
+      return
+    }
+
+    setIsNegotiating(true)
+    setNegotiationError(null)
+    setNegotiationResponse(null)
+
+    try {
+      // Extract supplier information from the search response
+      // Parse the browser agent response to find phone numbers
+      let supplierInfo = {
+        name: "Unknown Supplier",
+        phone: "+1234567890", // Default fallback
+        contact: "supplier@example.com"
+      }
+
+      // Try to extract phone numbers from the search response
+      if (searchResponse && typeof searchResponse === 'object') {
+        // Convert response to string for regex matching
+        const responseText = JSON.stringify(searchResponse)
+        
+        // Phone number regex patterns (international formats)
+        const phonePatterns = [
+          /\+?(\d{1,3})[-.\s]?\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})/g, // +1 (123) 456-7890
+          /\+?(\d{1,3})[-.\s]?(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})/g,      // +1 123 456 7890
+          /(\d{3})[-.\s]?(\d{3})[-.\s]?(\d{4})/g,                          // 123-456-7890
+          /\+?(\d{1,3})[-.\s]?\(?(\d{2,4})\)?[-.\s]?(\d{2,4})[-.\s]?(\d{2,8})/g // Various formats
+        ]
+        
+        // Extract all potential phone numbers
+        let extractedNumbers: string[] = []
+        phonePatterns.forEach(pattern => {
+          const matches = responseText.match(pattern)
+          if (matches) {
+            extractedNumbers = [...extractedNumbers, ...matches]
+          }
+        })
+        
+        // Clean and format the extracted numbers
+        const cleanNumbers = extractedNumbers.map(num => {
+          // Remove all non-digit characters except +
+          return num.replace(/[^\d+]/g, '')
+        }).filter(num => {
+          // Keep only numbers with 7-15 digits (valid phone number lengths)
+          const digitsOnly = num.replace(/\D/g, '')
+          return digitsOnly.length >= 7 && digitsOnly.length <= 15
+        })
+        
+        // Use the first valid phone number found
+        if (cleanNumbers.length > 0) {
+          supplierInfo.phone = cleanNumbers[0]
+          
+          // Try to extract supplier name from the response
+          // Look for patterns like "Supplier: Name" or "Company: Name"
+          const namePatterns = [
+            /supplier["']?\s*[:\-]\s*["']?([^"']+)["']?/gi,
+            /company["']?\s*[:\-]\s*["']?([^"']+)["']?/gi,
+            /store["']?\s*[:\-]\s*["']?([^"']+)["']?/gi,
+            /vendor["']?\s*[:\-]\s*["']?([^"']+)["']?/gi
+          ]
+          
+          for (const pattern of namePatterns) {
+            const nameMatch = responseText.match(pattern)
+            if (nameMatch && nameMatch[1]) {
+              supplierInfo.name = nameMatch[1].trim()
+              break
+            }
+          }
+        }
+      }
+
+      // Use the product data from the parsed data
+      const productInfo = parsedData?.products || []
+
+      // Call the negotiation API
+      const response = await fetch('/api/negotiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          supplierInfo,
+          productInfo
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setNegotiationCallId(data.call_id)
+      setNegotiationResponse(data)
+
+      // Start polling for the negotiation status
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`/api/negotiate?call_id=${data.call_id}`)
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json()
+            setNegotiationResponse(statusData)
+            
+            // Stop polling if the call is completed
+            if (statusData.status === 'completed' || statusData.status === 'failed') {
+              clearInterval(pollInterval)
+            }
+          }
+        } catch (error) {
+          console.error('Error polling negotiation status:', error)
+          clearInterval(pollInterval)
+        }
+      }, 5000) // Poll every 5 seconds
+
+    } catch (err) {
+      setNegotiationError(err instanceof Error ? err.message : 'Failed to initiate negotiation')
+    } finally {
+      setIsNegotiating(false)
     }
   }
 
@@ -342,6 +471,104 @@ export default function KnowledgeBasePage() {
                         </div>
                       </CardContent>
                     </Card>
+                  )}
+                  
+                  {searchResponse && (
+                    <div className="mt-6 pt-6 border-t">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-medium">Negotiate with Suppliers</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Use AI voice agent to negotiate better pricing and terms
+                          </p>
+                        </div>
+                        <Button
+                          onClick={handleNegotiateWithSuppliers}
+                          disabled={isNegotiating}
+                          className="flex items-center gap-2"
+                        >
+                          {isNegotiating ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Negotiating...
+                            </>
+                          ) : (
+                            <>
+                              <Phone className="h-4 w-4" />
+                              Negotiate Now
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      
+                      {negotiationError && (
+                        <Card className="mt-4 border-destructive">
+                          <CardContent className="flex items-center gap-2 pt-6">
+                            <AlertCircle className="h-4 w-4 text-destructive" />
+                            <p className="text-sm text-destructive">{negotiationError}</p>
+                          </CardContent>
+                        </Card>
+                      )}
+                      
+                      {negotiationResponse && (
+                        <Card className="mt-4">
+                          <CardHeader>
+                            <CardTitle>Negotiation Results</CardTitle>
+                            <CardDescription>
+                              {negotiationResponse.status === 'in-progress'
+                                ? 'AI agent is currently negotiating with the supplier...'
+                                : negotiationResponse.status === 'completed'
+                                ? 'Negotiation completed successfully!'
+                                : 'Negotiation status'}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {negotiationCallId && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">Call ID:</span>
+                                  <span className="text-sm text-muted-foreground">{negotiationCallId}</span>
+                                </div>
+                              )}
+                              
+                              {negotiationResponse.status === 'in-progress' && (
+                                <div className="flex items-center gap-2">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span className="text-sm">Negotiation in progress...</span>
+                                </div>
+                              )}
+                              
+                              {negotiationResponse.transcript && (
+                                <div className="bg-muted p-4 rounded-lg">
+                                  <h4 className="text-sm font-medium mb-2">Conversation Transcript</h4>
+                                  <pre className="text-sm whitespace-pre-wrap overflow-auto max-h-64">
+                                    {negotiationResponse.transcript}
+                                  </pre>
+                                </div>
+                              )}
+                              
+                              {negotiationResponse.duration && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">Call Duration:</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {Math.round(negotiationResponse.duration / 60)} minutes
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {negotiationResponse.cost && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">Call Cost:</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    ${negotiationResponse.cost.toFixed(4)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>
